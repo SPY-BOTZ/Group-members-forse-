@@ -45,8 +45,8 @@ CURRENT_SEARCH_LIMIT = 4
 STARTUP_PHOTO_URL = os.getenv("STARTUP_PHOTO_URL", "https://iili.io/CQw1J3X.jpg")
 
 # External Links for Buttons
-SUPPORT_CHANNEL_URL = "https://t.me/your_support_channel"
-DEVELOPER_URL = "https://t.me/your_username"
+SUPPORT_CHANNEL_URL = "https://t.me/Prime_Movie_YT_Group"
+DEVELOPER_URL = "https://t.me/botmaster55"
 
 # ---------------------------------------------------------------------------
 # DATABASE SETUP (SQLite via SQLAlchemy)
@@ -158,22 +158,23 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     start_text = (
         "🤖 **Group Manager & Limit Bot**\n\n"
-        "🇧🇩 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n"
+        "🫂 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n"
         f"🔗 Your Invite Link: `https://t.me/{context.bot.username}?start={user.id}`\n\n"
         "🇬🇧 This bot helps manage file search limits and referral tracking inside groups."
     )
 
     bot_username = context.bot.username
-    keyboard = [
+        keyboard = [
         [
-            InlineKeyboardButton("➕ Add To My Group", url=f"https://t.me/{bot_username}?startgroup=true"),
-            InlineKeyboardButton("📤 Share Bot", url=f"https://t.me/share/url?url=https://t.me/{bot_username}&text=Check%20out%20this%20awesome%20bot!")
+            InlineKeyboardButton("➕ Add To My Group", url="https://t.me/Group_FsuBbot?startgroup=true"),
+            InlineKeyboardButton("📤 Share Bot", url="https://t.me/share/url?url=https://t.me/Group_FsuBbot&text=Check%20out%20this%20awesome%20bot!")
         ],
         [
             InlineKeyboardButton("👨‍💻 Developer", url=DEVELOPER_URL),
             InlineKeyboardButton("📢 Support Channel", url=SUPPORT_CHANNEL_URL)
         ]
     ]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     try:

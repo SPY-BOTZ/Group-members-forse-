@@ -46,8 +46,8 @@ STARTUP_PHOTO_URL = os.getenv("STARTUP_PHOTO_URL", "https://iili.io/CQw1J3X.jpg"
 
 # Bot Username & External Links
 BOT_USERNAME = "Group_FsuBbot"
-SUPPORT_CHANNEL_URL = "https://t.me/your_support_channel"
-DEVELOPER_URL = "https://t.me/your_username"
+SUPPORT_CHANNEL_URL = "https://t.me/Prime_Movie_YT_Group"
+DEVELOPER_URL = "https://t.me/botmaster55"
 
 # ---------------------------------------------------------------------------
 # DATABASE SETUP (SQLite via SQLAlchemy)
@@ -166,8 +166,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [
-            InlineKeyboardButton("➕ Add To My Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"),
-            InlineKeyboardButton("📤 Share Bot", url=f"https://t.me/share/url?url=https://t.me/{BOT_USERNAME}&text=Check%20out%20this%20awesome%20bot!")
+            InlineKeyboardButton("➕ Add To My Group", url=f"https://t.me/Group_FsuBbot?startgroup=true"),
+            InlineKeyboardButton("📤 Share Bot", url=f"https://t.me/share/url?url=https://t.me/Group_FsuBbot&text=Check%20out%20this%20awesome%20bot!")
         ],
         [
             InlineKeyboardButton("👨‍💻 Developer", url=DEVELOPER_URL),

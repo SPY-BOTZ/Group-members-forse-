@@ -35,7 +35,7 @@ if not API_TOKEN:
 
 PORT = int(os.getenv("PORT", "8000"))
 
-# Aapki di gayi Telegram Admin ID
+# Telegram Admin ID
 ADMIN_USER_IDS = [1249672673] 
 
 # Global dynamic search limit (Default = 4)
@@ -44,9 +44,10 @@ CURRENT_SEARCH_LIMIT = 4
 # Startup Photo URL
 STARTUP_PHOTO_URL = os.getenv("STARTUP_PHOTO_URL", "https://iili.io/CQw1J3X.jpg")
 
-# External Links for Buttons
-SUPPORT_CHANNEL_URL = "https://t.me/Prime_Movie_YT_Group"
-DEVELOPER_URL = "https://t.me/botmaster55"
+# Bot Username & External Links
+BOT_USERNAME = "Group_FsuBbot"
+SUPPORT_CHANNEL_URL = "https://t.me/your_support_channel"
+DEVELOPER_URL = "https://t.me/your_username"
 
 # ---------------------------------------------------------------------------
 # DATABASE SETUP (SQLite via SQLAlchemy)
@@ -91,9 +92,9 @@ def run_web_server():
 # ---------------------------------------------------------------------------
 def get_warning_message(user_name, user_id):
     return (
-        f"⚠️ **सर्तकता / Warning**\n\n"
+        f"⚠️ **सतর্কতা / Warning**\n\n"
         f"👤 Member: **{user_name}** (`{user_id}`)\n"
-        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন।\n\n"
+        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন。\n\n"
         f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho."
     )
 
@@ -128,7 +129,7 @@ async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
         return False
 
 # ---------------------------------------------------------------------------
-# COMMAND HANDLERS: START, STATS, PANEL, SETWELCOME, SETLIMIT, UNMUTE
+# COMMAND HANDLERS (PART 1)
 # ---------------------------------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -158,23 +159,21 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     start_text = (
         "🤖 **Group Manager & Limit Bot**\n\n"
-        "🫂 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n"
-        f"🔗 Your Invite Link: `https://t.me/{context.bot.username}?start={user.id}`\n\n"
+        "🇧🇩 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n"
+        f"🔗 Your Invite Link: `https://t.me/{BOT_USERNAME}?start={user.id}`\n\n"
         "🇬🇧 This bot helps manage file search limits and referral tracking inside groups."
     )
 
-    bot_username = context.bot.username
-        keyboard = [
+    keyboard = [
         [
-            InlineKeyboardButton("➕ Add To My Group", url="https://t.me/Group_FsuBbot?startgroup=true"),
-            InlineKeyboardButton("📤 Share Bot", url="https://t.me/share/url?url=https://t.me/Group_FsuBbot&text=Check%20out%20this%20awesome%20bot!")
+            InlineKeyboardButton("➕ Add To My Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"),
+            InlineKeyboardButton("📤 Share Bot", url=f"https://t.me/share/url?url=https://t.me/{BOT_USERNAME}&text=Check%20out%20this%20awesome%20bot!")
         ],
         [
             InlineKeyboardButton("👨‍💻 Developer", url=DEVELOPER_URL),
             InlineKeyboardButton("📢 Support Channel", url=SUPPORT_CHANNEL_URL)
         ]
     ]
-
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     try:
@@ -201,7 +200,6 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text("❌ Sirf group admins ya owner hi is command ka istemal kar sakte hain!")
         return
 
-    # Check if replied to a user or user ID provided in args
     target_user_id = None
     if update.effective_message.reply_to_message:
         target_user_id = update.effective_message.reply_to_message.from_user.id
@@ -212,7 +210,6 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text("⚠️ Usage: Kisi ke message par reply karke `/unmute` likhein ya `/unmute <user_id>` likhein.", parse_mode="Markdown")
         return
 
-    # Full permissions restore karne ke liye
     permissions = ChatPermissions(
         can_send_messages=True,
         can_send_audios=True,
@@ -229,13 +226,12 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=chat.id, user_id=target_user_id, permissions=permissions
         )
         
-        # Database se bhi restricted_until clear kar do
         session = SessionLocal()
         try:
             user_rec = session.query(UserActivity).filter_by(user_id=target_user_id).first()
             if user_rec:
                 user_rec.restricted_until = None
-                user_rec.message_count = 0 # Optional: Reset count on manual unmute if required
+                user_rec.message_count = 0
                 session.commit()
         finally:
             session.close()
@@ -243,7 +239,7 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text(f"✅ User (`{target_user_id}`) ko successfully unmute kar diya gaya hai!", parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Failed to unmute user: {e}")
-        await update.effective_message.reply_text(f"⚠️ Unmute karne mein aafat aayi: {e}")
+        await update.effective_message.reply_text(f"⚠️ Unmute karne mein error aayi: {e}")
 
 async def set_welcome_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_user_admin(update, context):
@@ -415,9 +411,6 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     finally:
         session.close()
 
-# ---------------------------------------------------------------------------
-# WELCOME NEW MEMBERS
-# ---------------------------------------------------------------------------
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     for member in update.message.new_chat_members:
@@ -426,9 +419,6 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         wel_text = get_welcome_message(member.full_name, chat.id)
         await update.message.reply_text(wel_text, parse_mode="Markdown")
 
-# ---------------------------------------------------------------------------
-# CORE MESSAGE TRACKING & LIMIT ENFORCEMENT (6 Hours Mute & Name/ID Reply)
-# ---------------------------------------------------------------------------
 async def track_messages_and_enforce_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     if not message or not message.from_user or message.from_user.is_bot:
@@ -488,9 +478,8 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
 
         current_count = user_record.message_count
 
-        # 5th message par restriction (6 hours mute) aur user details ke sath reply
         if current_count > CURRENT_SEARCH_LIMIT:
-            mute_duration = timedelta(hours=6) # 6 hours mute duration as requested
+            mute_duration = timedelta(hours=6)
             until_time = now_utc + mute_duration
 
             permissions = ChatPermissions(
@@ -511,7 +500,6 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
                 user_record.restricted_until = until_time.replace(tzinfo=None)
                 session.commit()
 
-                # User ke message par reply karte hue warning bhejna jisme name aur ID ho
                 await message.reply_text(
                     get_warning_message(user.full_name, user_id),
                     parse_mode="Markdown"
@@ -524,16 +512,12 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
     finally:
         session.close()
 
-# ---------------------------------------------------------------------------
-# MAIN
-# ---------------------------------------------------------------------------
 def main():
     server_thread = Thread(target=run_web_server, daemon=True)
     server_thread.start()
 
     application = ApplicationBuilder().token(API_TOKEN).build()
 
-    # Handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("userstats", user_stats_command))
@@ -553,3 +537,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

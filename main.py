@@ -37,7 +37,7 @@ PORT = int(os.getenv("PORT", "8000"))
 
 # Optional: Define your admin user IDs here as integers (comma-separated or hardcoded list)
 # You can also use context.bot.get_chat_administrators dynamically for group admins.
-ADMIN_USER_IDS = [] 
+ADMIN_USER_IDS = [1249672673] 
 
 # ---------------------------------------------------------------------------
 # DATABASE SETUP (SQLite via SQLAlchemy)

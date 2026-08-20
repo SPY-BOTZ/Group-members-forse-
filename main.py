@@ -94,8 +94,8 @@ def get_warning_message(user_name, user_id):
     return (
         f"⚠️ **सतর্কতা / Warning**\n\n"
         f"👤 Member: **{user_name}** (`{user_id}`)\n"
-        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন。\n\n"
-        f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho."
+        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন\n\n🔕অন্যথায় আগামী ৬ ঘণ্টার জন্য আপনার ফাইল সার্চ সুবিধা বন্ধ থাকবে。\n\n"
+        f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho\n\n🔓Member add na karne par aapki search limit 6 ghante ke liye block kar di jayएगी."
     )
 
 def get_welcome_message(user_name, chat_id):

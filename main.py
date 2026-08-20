@@ -35,8 +35,7 @@ if not API_TOKEN:
 
 PORT = int(os.getenv("PORT", "8000"))
 
-# Optional: Define your admin user IDs here as integers (comma-separated or hardcoded list)
-# You can also use context.bot.get_chat_administrators dynamically for group admins.
+# Aap apni Telegram User ID yahan daal sakte hain agar zaroorat ho
 ADMIN_USER_IDS = [1249672673] 
 
 # ---------------------------------------------------------------------------
@@ -87,13 +86,12 @@ def get_welcome_message(user_name):
     )
 
 async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Checks if the user is an administrator of the chat."""
     user = update.effective_user
     chat = update.effective_chat
     if not user or not chat:
         return False
     if chat.type == "private":
-        return True # Private chat with bot can be treated as admin context if needed
+        return True
     try:
         member = await chat.get_member(user.id)
         return member.status in ["creator", "administrator"]
@@ -101,10 +99,18 @@ async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
         return False
 
 # ---------------------------------------------------------------------------
-# BOT COMMAND HANDLERS: STATS & ADMIN PANEL
+# COMMAND HANDLERS: START, STATS, PANEL
 # ---------------------------------------------------------------------------
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles /start command in private chat or groups."""
+    start_text = (
+        "🤖 **Group Manager & Limit Bot**\n\n"
+        "🇧🇩 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n\n"
+        "🇬🇧 This bot helps manage file search limits and tracks activity inside groups."
+    )
+    await update.effective_message.reply_text(start_text, parse_mode="Markdown")
+
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Shows global statistics of the bot / group."""
     session = SessionLocal()
     try:
         total_users = session.query(UserActivity).count()
@@ -123,12 +129,8 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         session.close()
 
 async def panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Interactive Admin Panel for group/bot managers."""
     if not await is_user_admin(update, context):
-        await update.effective_message.reply_text(
-            "❌ আপনার এই কমান্ডটি ব্যবহার করার অনুমতি নেই!\n"
-            "❌ You are not authorized to use this admin panel command!"
-        )
+        await update.effective_message.reply_text("❌ You are not authorized to use this command!")
         return
 
     keyboard = [
@@ -138,15 +140,13 @@ async def panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    panel_text = (
-        "🎛️ **অ্যাডমিন কন্ট্রোল প্যানেল / Admin Control Panel**\n\n"
-        "🇧🇩 নিচে দেওয়া অপশনগুলো থেকে ম্যানেজ করুন:\n"
-        "🇬🇧 Manage your bot using the options below:"
+    await update.effective_message.reply_text(
+        "🎛️ **অ্যাডমিন কন্ট্রোল প্যানেল / Admin Control Panel**", 
+        reply_markup=reply_markup, 
+        parse_mode="Markdown"
     )
-    await update.effective_message.reply_text(panel_text, reply_markup=reply_markup, parse_mode="Markdown")
 
 async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles inline buttons clicks for the admin panel."""
     query = update.callback_query
     await query.answer()
 
@@ -162,84 +162,66 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             restricted_users = session.query(UserActivity).filter(UserActivity.restricted_until > now_utc).count()
             
             await query.edit_message_text(
-                f"📊 **Live Panel Stats**\n\n"
-                f"Total Users Tracked: {total_users}\n"
-                f"Currently Muted/Restricted: {restricted_users}",
+                f"📊 **Live Panel Stats**\n\nTotal Users: {total_users}\nRestricted: {restricted_users}",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="admin_back")]])
             )
         elif query.data == "admin_broadcast_info":
             await query.edit_message_text(
-                "📢 **Broadcast Guide**\n\n"
-                "To broadcast a message to all users, use command:\n"
-                "`/broadcast Your message text here`",
+                "📢 **Broadcast Guide**\n\nUse command: `/broadcast Your text here`",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="admin_back")]])
             )
         elif query.data == "admin_refresh" or query.data == "admin_back":
             keyboard = [
-                [InlineKeyboardButton("📊 View Stats / স্ট্যাটাস", callback_data="admin_stats")],
-                [InlineKeyboardButton("📢 Broadcast / ব্রডকাস্ট", callback_data="admin_broadcast_info")],
-                [InlineKeyboardButton("🔄 Refresh DB / রিফ্রেশ", callback_data="admin_refresh")]
+                [InlineKeyboardButton("📊 View Stats", callback_data="admin_stats")],
+                [InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast_info")],
+                [InlineKeyboardButton("🔄 Refresh", callback_data="admin_refresh")]
             ]
-            await query.edit_message_text(
-                "🎛️ **অ্যাডমিন কন্ট্রোল প্যানেল / Admin Control Panel**",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            await query.edit_message_text("🎛️ **Admin Control Panel**", reply_markup=InlineKeyboardMarkup(keyboard))
     finally:
         session.close()
 
 async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Broadcasts a message to all tracked users in the database."""
     if not await is_user_admin(update, context):
-        await update.effective_message.reply_text("❌ Only admins can trigger broadcasts.")
+        await update.effective_message.reply_text("❌ Only admins can broadcast.")
         return
 
     if not context.args:
-        await update.effective_message.reply_text("⚠️ Please provide text to broadcast. Example: `/broadcast Hello everyone!`", parse_mode="Markdown")
+        await update.effective_message.reply_text("⚠️ Usage: `/broadcast Hello message`", parse_mode="Markdown")
         return
 
     broadcast_msg = " ".join(context.args)
     session = SessionLocal()
     try:
         users = session.query(UserActivity).all()
-        success_count = 0
-        fail_count = 0
-
-        status_msg = await update.effective_message.reply_text("📢 Broadcasting message... Please wait.")
-
         for u in users:
             try:
-                await context.bot.send_message(chat_id=u.user_id, text=f"📢 **Announcement / ঘোষণা:**\n\n{broadcast_msg}", parse_mode="Markdown")
-                success_count += 1
+                await context.bot.send_message(chat_id=u.user_id, text=f"📢 **Announcement:**\n\n{broadcast_msg}", parse_mode="Markdown")
             except Exception:
-                fail_count += 1
-
-        await status_msg.edit_text(f"✅ Broadcast Complete!\n\nSuccessful: {success_count}\nFailed: {fail_count}")
+                pass
+        await update.effective_message.reply_text("✅ Broadcast completed successfully!")
     finally:
         session.close()
 
 # ---------------------------------------------------------------------------
-# WELCOME NEW MEMBERS HANDLER
+# WELCOME NEW MEMBERS
 # ---------------------------------------------------------------------------
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Sends a dual-language welcome message when new members join the group."""
     for member in update.message.new_chat_members:
         if member.is_bot:
             continue
-        welcome_text = get_welcome_message(member.full_name)
-        await update.message.reply_text(welcome_text, parse_mode="Markdown")
+        await update.message.reply_text(get_welcome_message(member.full_name), parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
-# CORE TRACKING & RESTRICTION MIDDLEWARE
+# CORE MESSAGE TRACKING & LIMIT ENFORCEMENT
 # ---------------------------------------------------------------------------
 async def track_messages_and_enforce_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tracks messages, handles 4-file search limits, mutes on 5th message."""
     message = update.effective_message
     if not message or not message.from_user or message.from_user.is_bot:
         return
 
     chat = update.effective_chat
     if chat.type not in ["group", "supergroup"]:
-        return
+        return  # Yeh sirf groups par kaam karega
 
     user = message.from_user
     user_id = user.id
@@ -260,11 +242,8 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             )
             session.add(user_record)
             session.commit()
-        else:
-            user_record.username = username
-            session.commit()
 
-        # Check restriction expiration
+        # Check restriction
         now_utc = datetime.now(timezone.utc)
         if user_record.restricted_until:
             restricted_until_dt = user_record.restricted_until
@@ -274,102 +253,76 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             if now_utc < restricted_until_dt:
                 try:
                     await message.delete()
-                except Exception as e:
-                    logger.warning(f"Could not delete message for restricted user {user_id}: {e}")
+                except Exception:
+                    pass
                 return
             else:
                 user_record.restricted_until = None
                 session.commit()
 
-        # Reset count on new calendar day
+        # Reset count daily
         if user_record.last_reset_date != current_utc_date:
             user_record.message_count = 0
             user_record.last_reset_date = current_utc_date
             session.commit()
 
-        # Increment message/search count
+        # Increment count
         user_record.message_count += 1
         session.commit()
 
         current_count = user_record.message_count
-        logger.info(f"User {user_id} daily count: {current_count}")
 
-        # Enforce mute on 5th message
+        # Mute on 5th message
         if current_count > 4:
             mute_duration = timedelta(hours=24)
             until_time = now_utc + mute_duration
 
             permissions = ChatPermissions(
-                can_send_messages=False,
-                can_send_audios=False,
-                can_send_documents=False,
-                can_send_photos=False,
-                can_send_videos=False,
-                can_send_video_notes=False,
-                can_send_voice_notes=False,
-                can_polls=False,
-                can_send_other_messages=False,
+                can_send_messages=False, can_send_audios=False, can_send_documents=False,
+                can_send_photos=False, can_send_videos=False, can_send_video_notes=False,
+                can_send_voice_notes=False, can_polls=False, can_send_other_messages=False,
                 can_add_web_page_previews=False
             )
 
             try:
                 await context.bot.restrict_chat_member(
-                    chat_id=chat.id,
-                    user_id=user_id,
-                    permissions=permissions,
-                    until_date=until_time
+                    chat_id=chat.id, user_id=user_id, permissions=permissions, until__date=until_time
                 )
-
                 user_record.restricted_until = until_time.replace(tzinfo=None)
                 session.commit()
 
-                # Reply with dual-language warning message
                 await message.reply_text(get_warning_message(), parse_mode="Markdown")
-                logger.info(f"Restricted user {user_id} for 24 hours.")
-
             except Exception as e:
-                logger.error(f"Failed to restrict user {user_id}: {e}")
-                await message.reply_text(
-                    "⚠️ **Permission Error / অনুমতি ত্রুটি**\n\n"
-                    "🇧🇩 আপনার সীমা শেষ হয়েছে, কিন্তু বটকে অ্যাডমিন করা না থাকায় আমি আপনাকে রেস্ট্রিক্ট করতে পারছি না!\n"
-                    "🇬🇧 You crossed the limit, but I lack admin permissions to restrict you!",
-                    parse_mode="Markdown"
-                )
+                logger.error(f"Failed to restrict user: {e}")
+                await message.reply_text("⚠️ Bot lacks admin permissions to mute users!")
 
     except Exception as db_error:
-        logger.error(f"Database error: {db_error}")
+        logger.error(f"DB Error: {db_error}")
     finally:
         session.close()
 
 # ---------------------------------------------------------------------------
-# MAIN APPLICATION INITIALIZATION
+# MAIN
 # ---------------------------------------------------------------------------
 def main():
-    # Start web server thread for Koyeb health check
     server_thread = Thread(target=run_web_server, daemon=True)
     server_thread.start()
-    logger.info(f"Flask health-check server started on port {PORT}")
 
-    # Build bot application
     application = ApplicationBuilder().token(API_TOKEN).build()
 
-    # Handlers setup
+    # Handlers
+    application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("panel", panel_command))
     application.add_handler(CommandHandler("broadcast", broadcast_command))
     application.add_handler(CallbackQueryHandler(admin_callback_handler))
-    
-    # Welcome new member handler
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
-    
-    # Message tracking handler
     application.add_handler(
         MessageHandler(filters.TEXT | filters.Document.ALL | filters.PHOTO | filters.VIDEO, track_messages_and_enforce_limit)
     )
 
-    logger.info("Starting upgraded multilingual Telegram Bot...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
-  
+    

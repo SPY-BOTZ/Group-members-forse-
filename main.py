@@ -292,10 +292,10 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         text = (
             f"👤 **Your Stats / আপনার স্ট্যাটাস**\n\n"
-            f"🇧🇩 সার্চ করেছেন: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
-            f"🇧🇩 সফল ইনভাইট: `{invites}`\n\n"
-            f"🇬🇧 Searches Used: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
-            f"🇬🇧 Successful Invites: `{invites}`"
+            f"❤️‍🔥 সার্চ করেছেন: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
+            f"❤️‍🔥 সফল ইনভাইট: `{invites}`\n\n"
+            f"❤️‍🔥 Searches Used: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
+            f"❤️‍🔥 Successful Invites: `{invites}`"
         )
         await update.effective_message.reply_text(text, parse_mode="Markdown")
     finally:
@@ -305,14 +305,15 @@ async def top_referrers_command(update: Update, context: ContextTypes.DEFAULT_TY
     session = SessionLocal()
     try:
         top_users = session.query(UserActivity).order_by(UserActivity.invited_count.desc()).limit(10).all()
-        
-        text = "🏆 **Top 10 Referrers / শীর্ষ ইনভাইটারগণ**\n\n"
+
+        text = "🏆 **Top Referrers / শীর্ষ ইনভাইটারগণ**\n\n"
         for idx, u in enumerate(top_users, 1):
             name = u.username or f"User {u.user_id}"
             text += f"{idx}. **{name}** - 👥 `{u.invited_count}` invites\n"
 
         if not top_users:
             text += "No referral data available yet."
+
 
         await update.effective_message.reply_text(text, parse_mode="Markdown")
     finally:
@@ -327,11 +328,11 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         stats_text = (
             "📊 **বট স্ট্যাটিস্টিক্স / Bot Statistics**\n\n"
-            f"🇧🇩 মোট রেজিস্টার্ড ইউজার: `{total_users}`\n"
-            f"🇧🇩 বর্তমানে রেস্ট্রিক্টেড ইউজার: `{restricted_users}`\n"
-            f"🇧🇩 বর্তমান সার্চ লিমিট: `{CURRENT_SEARCH_LIMIT}`\n\n"
-            f"🇬🇧 Total Registered Users: `{total_users}`\n"
-            f"🇬🇧 Currently Restricted Users: `{restricted_users}`"
+            f"🎉 মোট রেজিস্টার্ড ইউজার: `{total_users}`\n"
+            f"💥 বর্তমানে রেস্ট্রিক্টেড ইউজার: `{restricted_users}`\n"
+            f"⚡ বর্তমান সার্চ লিমিট: `{CURRENT_SEARCH_LIMIT}`\n\n"
+            f"💫 Total Registered Users: `{total_users}`\n"
+            f"📣 Currently Restricted Users: `{restricted_users}`"
         )
         await update.effective_message.reply_text(stats_text, parse_mode="Markdown")
     finally:

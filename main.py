@@ -38,6 +38,12 @@ PORT = int(os.getenv("PORT", "8000"))
 # Aapki di gayi Telegram Admin ID
 ADMIN_USER_IDS = [1249672673] 
 
+# Global dynamic search limit (Default = 4)
+CURRENT_SEARCH_LIMIT = 4
+
+# Startup Photo URL (Aap apni pasand ka koi bhi direct image link yahan daal sakte hain)
+STARTUP_PHOTO_URL = os.getenv("STARTUP_PHOTO_URL", "https://iili.io/CQw1J3X.jpg")
+
 # ---------------------------------------------------------------------------
 # DATABASE SETUP (SQLite via SQLAlchemy)
 # ---------------------------------------------------------------------------
@@ -51,6 +57,14 @@ class UserActivity(Base):
     message_count = Column(Integer, default=0)
     last_reset_date = Column(String, default="")
     restricted_until = Column(DateTime, nullable=True)
+    invited_count = Column(Integer, default=0)
+    referred_by = Column(Integer, nullable=True)
+
+class GroupSettings(Base):
+    __tablename__ = "group_settings"
+
+    chat_id = Column(Integer, primary_key=True)
+    custom_welcome = Column(String, nullable=True)
 
 engine = create_engine("sqlite:///bot_database.db", echo=False)
 Base.metadata.create_all(engine)
@@ -69,20 +83,28 @@ def run_web_server():
     app.run(host="0.0.0.0", port=PORT)
 
 # ---------------------------------------------------------------------------
-# HELPER FUNCTIONS (Dual Language Formats: Bangla on Top, English Below)
+# HELPER FUNCTIONS
 # ---------------------------------------------------------------------------
 def get_warning_message():
     return (
-        "⚠️ **সতর্কতা / Warning**\n\n"
-        "🇧🇩 আপনি ইতিমধ্যে ৪টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন।\n\n"
-        "🇬🇧 Sir aapne phale hi 4 file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho."
+        "⚠️ **सतর্কতা / Warning**\n\n"
+        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন।\n\n"
+        f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho."
     )
 
-def get_welcome_message(user_name):
+def get_welcome_message(user_name, chat_id):
+    session = SessionLocal()
+    try:
+        setting = session.query(GroupSettings).filter_by(chat_id=chat_id).first()
+        if setting and setting.custom_welcome:
+            return setting.custom_welcome.format(name=user_name)
+    finally:
+        session.close()
+
     return (
         f"👋 **স্বাগতম / Welcome, {user_name}!**\n\n"
-        f"🇧🇩 আমাদের গ্রুপে আপনাকে স্বাগতম। দয়া করে গ্রুপের নিয়মকানুন মেনে চলুন এবং মুভি সার্চ করার সময় লিমিট খেয়াল রাখুন।\n\n"
-        f"🇬🇧 Welcome to our group! Please follow the rules and enjoy your stay."
+        f"🇮🇳 আমাদের গ্রুপে আপনাকে স্বাগতম। দয়া করে গ্রুপের নিয়মকানুন মেনে চলুন এবং মুভি সার্চ করার সময় লিমিট খেয়াল রাখুন।\n\n"
+        f"🇮🇳 Welcome to our group! Please follow the rules and enjoy your stay."
     )
 
 async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -101,15 +123,129 @@ async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
         return False
 
 # ---------------------------------------------------------------------------
-# COMMAND HANDLERS: START, STATS, PANEL
+# COMMAND HANDLERS: START, STATS, PANEL, SETWELCOME, SETLIMIT, TOPREFERRERS
 # ---------------------------------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    args = context.args
+
+    # Referral tracking logic
+    if args and args[0].isdigit():
+        referrer_id = int(args[0])
+        if referrer_id != user.id:
+            session = SessionLocal()
+            try:
+                user_rec = session.query(UserActivity).filter_by(user_id=user.id).first()
+                if not user_rec or not user_rec.referred_by:
+                    # Register new user with referrer
+                    if not user_rec:
+                        user_rec = UserActivity(user_id=user.id, username=user.username or user.first_name, referred_by=referrer_id)
+                        session.add(user_rec)
+                    else:
+                        user_rec.referred_by = referrer_id
+                    
+                    # Update referrer count
+                    referrer_rec = session.query(UserActivity).filter_by(user_id=referrer_id).first()
+                    if referrer_rec:
+                        referrer_rec.invited_count += 1
+                    else:
+                        session.add(UserActivity(user_id=referrer_id, invited_count=1))
+                    session.commit()
+            finally:
+                session.close()
+
     start_text = (
         "🤖 **Group Manager & Limit Bot**\n\n"
-        "🇧🇩 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n\n"
-        "🇬🇧 This bot helps manage file search limits and tracks activity inside groups."
+        "🇮🇳 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n"
+        f"🔗 Your Invite Link: `https://t.me/{context.bot.username}?start={user.id}`\n\n"
+        "🇮🇳 This bot helps manage file search limits and referral tracking inside groups."
     )
-    await update.effective_message.reply_text(start_text, parse_mode="Markdown")
+    
+    try:
+        await update.effective_message.reply_photo(
+            photo=STARTUP_PHOTO_URL,
+            caption=start_text,
+            parse_mode="Markdown"
+        )
+    except Exception:
+        await update.effective_message.reply_text(start_text, parse_mode="Markdown")
+
+async def set_welcome_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_user_admin(update, context):
+        await update.effective_message.reply_text("❌ Only admins can change the welcome message!")
+        return
+
+    chat = update.effective_chat
+    if chat.type == "private":
+        await update.effective_message.reply_text("⚠️ This command can only be used inside a group!")
+        return
+
+    if not context.args:
+        await update.effective_message.reply_text("⚠️ Usage: `/setwelcome Hello {name}, welcome to the group!`", parse_mode="Markdown")
+        return
+
+    custom_text = " ".join(context.args)
+    session = SessionLocal()
+    try:
+        setting = session.query(GroupSettings).filter_by(chat_id=chat.id).first()
+        if not setting:
+            setting = GroupSettings(chat_id=chat.id, custom_welcome=custom_text)
+            session.add(setting)
+        else:
+            setting.custom_welcome = custom_text
+        session.commit()
+        await update.effective_message.reply_text("✅ Custom welcome message updated successfully!")
+    finally:
+        session.close()
+
+async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global CURRENT_SEARCH_LIMIT
+    if not await is_user_admin(update, context):
+        await update.effective_message.reply_text("❌ Only admins can change the search limit!")
+        return
+
+    if not context.args or not context.args[0].isdigit():
+        await update.effective_message.reply_text(f"⚠️ Usage: `/setlimit 5`\nCurrent Limit is: `{CURRENT_SEARCH_LIMIT}`", parse_mode="Markdown")
+        return
+
+    CURRENT_SEARCH_LIMIT = int(context.args[0])
+    await update.effective_message.reply_text(f"✅ Daily search limit successfully updated to `{CURRENT_SEARCH_LIMIT}`!", parse_mode="Markdown")
+
+async def user_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    session = SessionLocal()
+    try:
+        user_rec = session.query(UserActivity).filter_by(user_id=user.id).first()
+        searches = user_rec.message_count if user_rec else 0
+        invites = user_rec.invited_count if user_rec else 0
+
+        text = (
+            f"👤 **Your Stats / আপনার স্ট্যাটাস**\n\n"
+            f"🇮🇳 সার্চ করেছেন: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
+            f"🇮🇳 সফল ইনভাইট: `{invites}`\n\n"
+            f"🇮🇳 Searches Used: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
+            f"🇮🇳 Successful Invites: `{invites}`"
+        )
+        await update.effective_message.reply_text(text, parse_mode="Markdown")
+    finally:
+        session.close()
+
+async def top_referrers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    session = SessionLocal()
+    try:
+        top_users = session.query(UserActivity).order_by(UserActivity.invited_count.desc()).limit(10).all()
+        
+        text = "🏆 **Top 10 Referrers / শীর্ষ ইনভাইটারগণ**\n\n"
+        for idx, u in enumerate(top_users, 1):
+            name = u.username or f"User {u.user_id}"
+            text += f"{idx}. **{name}** - 👥 `{u.invited_count}` invites\n"
+
+        if not top_users:
+            text += "No referral data available yet."
+
+        await update.effective_message.reply_text(text, parse_mode="Markdown")
+    finally:
+        session.close()
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = SessionLocal()
@@ -120,10 +256,11 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         stats_text = (
             "📊 **বট স্ট্যাটিস্টিক্স / Bot Statistics**\n\n"
-            f"🇧🇩 মোট রেজিস্টার্ড ইউজার: `{total_users}`\n"
-            f"🇧🇩 বর্তমানে রেস্ট্রিক্টেড ইউজার: `{restricted_users}`\n\n"
-            f"🇬🇧 Total Registered Users: `{total_users}`\n"
-            f"🇬🇧 Currently Restricted Users: `{restricted_users}`"
+            f"🇮🇳 মোট রেজিস্টার্ড ইউজার: `{total_users}`\n"
+            f"🇮🇳 বর্তমানে রেস্ট্রিক্টেড ইউজার: `{restricted_users}`\n"
+            f"🇮🇳 বর্তমান সার্চ লিমিট: `{CURRENT_SEARCH_LIMIT}`\n\n"
+            f"🇮🇳 Total Registered Users: `{total_users}`\n"
+            f"🇮🇳 Currently Restricted Users: `{restricted_users}`"
         )
         await update.effective_message.reply_text(stats_text, parse_mode="Markdown")
     finally:
@@ -135,9 +272,9 @@ async def panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     keyboard = [
-        [InlineKeyboardButton("📊 View Stats / স্ট্যাটাস", callback_data="admin_stats")],
-        [InlineKeyboardButton("📢 Broadcast / ব্রডকাস্ট", callback_data="admin_broadcast_info")],
-        [InlineKeyboardButton("🔄 Refresh DB / রিফ্রেশ", callback_data="admin_refresh")]
+        [InlineKeyboardButton("📊 View Stats", callback_data="admin_stats")],
+        [InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast_info")],
+        [InlineKeyboardButton("🔄 Refresh", callback_data="admin_refresh")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -163,7 +300,7 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             restricted_users = session.query(UserActivity).filter(UserActivity.restricted_until > now_utc).count()
             
             await query.edit_message_text(
-                f"📊 **Live Panel Stats**\n\nTotal Users: {total_users}\nRestricted: {restricted_users}",
+                f"📊 **Live Panel Stats**\n\nTotal Users: {total_users}\nRestricted: {restricted_users}\nCurrent Limit: {CURRENT_SEARCH_LIMIT}",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="admin_back")]])
             )
         elif query.data == "admin_broadcast_info":
@@ -207,10 +344,12 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # WELCOME NEW MEMBERS
 # ---------------------------------------------------------------------------
 async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
     for member in update.message.new_chat_members:
         if member.is_bot:
             continue
-        await update.message.reply_text(get_welcome_message(member.full_name), parse_mode="Markdown")
+        wel_text = get_welcome_message(member.full_name, chat.id)
+        await update.message.reply_text(wel_text, parse_mode="Markdown")
 
 # ---------------------------------------------------------------------------
 # CORE MESSAGE TRACKING & LIMIT ENFORCEMENT
@@ -227,7 +366,6 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
     user = message.from_user
     user_id = user.id
 
-    # Agar user hardcoded admin hai, toh usko restrict nahi karenge
     if user_id in ADMIN_USER_IDS:
         return
 
@@ -249,7 +387,6 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             session.add(user_record)
             session.commit()
 
-        # Check restriction
         now_utc = datetime.now(timezone.utc)
         if user_record.restricted_until:
             restricted_until_dt = user_record.restricted_until
@@ -266,20 +403,17 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
                 user_record.restricted_until = None
                 session.commit()
 
-        # Reset count daily
         if user_record.last_reset_date != current_utc_date:
             user_record.message_count = 0
             user_record.last_reset_date = current_utc_date
             session.commit()
 
-        # Increment count
         user_record.message_count += 1
         session.commit()
 
         current_count = user_record.message_count
 
-        # Mute on 5th message (Fixed ChatPermissions without can_polls)
-        if current_count > 4:
+        if current_count > CURRENT_SEARCH_LIMIT:
             mute_duration = timedelta(hours=24)
             until_time = now_utc + mute_duration
 
@@ -304,7 +438,6 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
                 await message.reply_text(get_warning_message(), parse_mode="Markdown")
             except Exception as e:
                 logger.error(f"Failed to restrict user: {e}")
-                await message.reply_text(f"⚠️ Error restricting user: {e}")
 
     except Exception as db_error:
         logger.error(f"DB Error: {db_error}")
@@ -323,6 +456,10 @@ def main():
     # Handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("stats", stats_command))
+    application.add_handler(CommandHandler("userstats", user_stats_command))
+    application.add_handler(CommandHandler("topreferrers", top_referrers_command))
+    application.add_handler(CommandHandler("setwelcome", set_welcome_command))
+    application.add_handler(CommandHandler("setlimit", set_limit_command))
     application.add_handler(CommandHandler("panel", panel_command))
     application.add_handler(CommandHandler("broadcast", broadcast_command))
     application.add_handler(CallbackQueryHandler(admin_callback_handler))
@@ -335,4 +472,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+            

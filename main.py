@@ -129,7 +129,7 @@ async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
         return False
 
 # ---------------------------------------------------------------------------
-# COMMAND HANDLERS (PART 1)
+# COMMAND HANDLERS
 # ---------------------------------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -282,7 +282,7 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CURRENT_SEARCH_LIMIT = int(context.args[0])
     await update.effective_message.reply_text(f"✅ Daily search limit successfully updated to `{CURRENT_SEARCH_LIMIT}`!", parse_mode="Markdown")
 
-async def user_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def user_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     session = SessionLocal()
     try:
@@ -482,6 +482,7 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             mute_duration = timedelta(hours=6)
             until_time = now_utc + mute_duration
 
+            # Restricted user can still invite/add members to the group
             permissions = ChatPermissions(
                 can_send_messages=False, 
                 can_send_audios=False, 
@@ -490,7 +491,8 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
                 can_send_videos=False, 
                 can_send_video_notes=False,
                 can_send_voice_notes=False, 
-                can_add_web_page_previews=False
+                can_add_web_page_previews=False,
+                can_invite_users=True
             )
 
             try:
@@ -537,4 +539,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+            

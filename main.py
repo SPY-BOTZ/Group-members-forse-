@@ -278,15 +278,19 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
 
         current_count = user_record.message_count
 
-        # Mute on 5th message (Fixed until_date parameter here)
+        # Mute on 5th message (Fixed ChatPermissions without can_polls)
         if current_count > 4:
             mute_duration = timedelta(hours=24)
             until_time = now_utc + mute_duration
 
             permissions = ChatPermissions(
-                can_send_messages=False, can_send_audios=False, can_send_documents=False,
-                can_send_photos=False, can_send_videos=False, can_send_video_notes=False,
-                can_send_voice_notes=False, can_polls=False, can_send_other_messages=False,
+                can_send_messages=False, 
+                can_send_audios=False, 
+                can_send_documents=False,
+                can_send_photos=False, 
+                can_send_videos=False, 
+                can_send_video_notes=False,
+                can_send_voice_notes=False, 
                 can_add_web_page_previews=False
             )
 

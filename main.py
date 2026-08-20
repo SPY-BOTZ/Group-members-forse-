@@ -35,7 +35,7 @@ if not API_TOKEN:
 
 PORT = int(os.getenv("PORT", "8000"))
 
-# Aap apni Telegram User ID yahan daal sakte hain agar zaroorat ho
+# Aapki di gayi Telegram Admin ID
 ADMIN_USER_IDS = [1249672673] 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +90,8 @@ async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
     chat = update.effective_chat
     if not user or not chat:
         return False
+    if user.id in ADMIN_USER_IDS:
+        return True
     if chat.type == "private":
         return True
     try:
@@ -102,7 +104,6 @@ async def is_user_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
 # COMMAND HANDLERS: START, STATS, PANEL
 # ---------------------------------------------------------------------------
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles /start command in private chat or groups."""
     start_text = (
         "🤖 **Group Manager & Limit Bot**\n\n"
         "🇧🇩 এই বটটি গ্রুপে ফাইল সার্চ লিমিট ম্যানেজ করতে এবং মেম্বারদের ট্র্যাক করতে সাহায্য করে।\n\n"
@@ -221,10 +222,15 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
 
     chat = update.effective_chat
     if chat.type not in ["group", "supergroup"]:
-        return  # Yeh sirf groups par kaam karega
+        return  
 
     user = message.from_user
     user_id = user.id
+
+    # Agar user hardcoded admin hai, toh usko restrict nahi karenge
+    if user_id in ADMIN_USER_IDS:
+        return
+
     username = user.username or user.first_name
     current_utc_date = datetime.now(timezone.utc).strftime("%Y-m-d")
 
@@ -272,7 +278,7 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
 
         current_count = user_record.message_count
 
-        # Mute on 5th message
+        # Mute on 5th message (Fixed until_date parameter here)
         if current_count > 4:
             mute_duration = timedelta(hours=24)
             until_time = now_utc + mute_duration
@@ -286,7 +292,7 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
 
             try:
                 await context.bot.restrict_chat_member(
-                    chat_id=chat.id, user_id=user_id, permissions=permissions, until__date=until_time
+                    chat_id=chat.id, user_id=user_id, permissions=permissions, until_date=until_time
                 )
                 user_record.restricted_until = until_time.replace(tzinfo=None)
                 session.commit()
@@ -294,7 +300,7 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
                 await message.reply_text(get_warning_message(), parse_mode="Markdown")
             except Exception as e:
                 logger.error(f"Failed to restrict user: {e}")
-                await message.reply_text("⚠️ Bot lacks admin permissions to mute users!")
+                await message.reply_text(f"⚠️ Error restricting user: {e}")
 
     except Exception as db_error:
         logger.error(f"DB Error: {db_error}")

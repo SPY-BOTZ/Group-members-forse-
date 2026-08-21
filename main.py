@@ -38,8 +38,8 @@ PORT = int(os.getenv("PORT", "8000"))
 # Telegram Admin ID
 ADMIN_USER_IDS = [1249672673] 
 
-# Global dynamic search limit (Default = 4)
-CURRENT_SEARCH_LIMIT = 4
+# Global dynamic search limit (Default = 3)
+CURRENT_SEARCH_LIMIT = 3
 
 # Required invites to unlock unlimited search after hitting limit
 REQUIRED_INVITES = 2
@@ -158,7 +158,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         referrer_rec = UserActivity(user_id=referrer_id, invited_count=1)
                         session.add(referrer_rec)
                     
-                    # Check if referrer has now reached the required invites to unlock
                     if referrer_rec.invited_count >= REQUIRED_INVITES:
                         referrer_rec.restricted_until = None
                         referrer_rec.message_count = 0
@@ -286,7 +285,7 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args or not context.args[0].isdigit():
-        await update.effective_message.reply_text(f"⚠️ Usage: `/setlimit 4`\nCurrent Limit is: `{CURRENT_SEARCH_LIMIT}`", parse_mode="Markdown")
+        await update.effective_message.reply_text(f"⚠️ Usage: `/setlimit 3`\nCurrent Limit is: `{CURRENT_SEARCH_LIMIT}`", parse_mode="Markdown")
         return
 
     CURRENT_SEARCH_LIMIT = int(context.args[0])
@@ -445,7 +444,7 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
         return
 
     username = user.username or user.first_name
-    current_utc_date = datetime.now(timezone.utc).strftime("%Y-%m-d")
+    current_utc_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     session = SessionLocal()
     try:
@@ -462,7 +461,6 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             session.add(user_record)
             session.commit()
 
-        # If user has already completed required invites, let them search freely
         if user_record.invited_count >= REQUIRED_INVITES:
             return
 
@@ -509,7 +507,6 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             )
 
             try:
-                # Fixed: Changed until_until to until_date
                 await context.bot.restrict_chat_member(
                     chat_id=chat.id, user_id=user_id, permissions=permissions, until_date=until_time
                 )

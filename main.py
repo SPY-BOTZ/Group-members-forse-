@@ -94,8 +94,8 @@ def get_warning_message(user_name, user_id):
     return (
         f"⚠️ **सतর্কতা / Warning**\n\n"
         f"👤 Member: **{user_name}** (`{user_id}`)\n"
-        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন\n\n🔕অন্যথায় আগামী ৬ ঘণ্টার জন্য আপনার ফাইল সার্চ সুবিধা বন্ধ থাকবে。\n\n"
-        f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho\n\n🔓Member add na karne par aapki search limit 6 ghante ke liye block kar di jayएगी."
+        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন。\n\n"
+        f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho."
     )
 
 def get_welcome_message(user_name, chat_id):
@@ -282,7 +282,7 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CURRENT_SEARCH_LIMIT = int(context.args[0])
     await update.effective_message.reply_text(f"✅ Daily search limit successfully updated to `{CURRENT_SEARCH_LIMIT}`!", parse_mode="Markdown")
 
-    async def user_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def user_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     session = SessionLocal()
     try:
@@ -292,10 +292,10 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         text = (
             f"👤 **Your Stats / আপনার স্ট্যাটাস**\n\n"
-            f"❤️‍🔥 সার্চ করেছেন: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
-            f"❤️‍🔥 সফল ইনভাইট: `{invites}`\n\n"
-            f"❤️‍🔥 Searches Used: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
-            f"❤️‍🔥 Successful Invites: `{invites}`"
+            f"🇧🇩 সার্চ করেছেন: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
+            f"🇧🇩 সফল ইনভাইট: `{invites}`\n\n"
+            f"🇬🇧 Searches Used: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
+            f"🇬🇧 Successful Invites: `{invites}`"
         )
         await update.effective_message.reply_text(text, parse_mode="Markdown")
     finally:
@@ -305,15 +305,14 @@ async def top_referrers_command(update: Update, context: ContextTypes.DEFAULT_TY
     session = SessionLocal()
     try:
         top_users = session.query(UserActivity).order_by(UserActivity.invited_count.desc()).limit(10).all()
-
-        text = "🏆 **Top Referrers / শীর্ষ ইনভাইটারগণ**\n\n"
+        
+        text = "🏆 **Top 10 Referrers / শীর্ষ ইনভাইটারগণ**\n\n"
         for idx, u in enumerate(top_users, 1):
             name = u.username or f"User {u.user_id}"
             text += f"{idx}. **{name}** - 👥 `{u.invited_count}` invites\n"
 
         if not top_users:
             text += "No referral data available yet."
-
 
         await update.effective_message.reply_text(text, parse_mode="Markdown")
     finally:
@@ -328,11 +327,11 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         stats_text = (
             "📊 **বট স্ট্যাটিস্টিক্স / Bot Statistics**\n\n"
-            f"🎉 মোট রেজিস্টার্ড ইউজার: `{total_users}`\n"
-            f"💥 বর্তমানে রেস্ট্রিক্টেড ইউজার: `{restricted_users}`\n"
-            f"⚡ বর্তমান সার্চ লিমিট: `{CURRENT_SEARCH_LIMIT}`\n\n"
-            f"💫 Total Registered Users: `{total_users}`\n"
-            f"📣 Currently Restricted Users: `{restricted_users}`"
+            f"🇧🇩 মোট রেজিস্টার্ড ইউজার: `{total_users}`\n"
+            f"🇧🇩 বর্তমানে রেস্ট্রিক্টেড ইউজার: `{restricted_users}`\n"
+            f"🇧🇩 বর্তমান সার্চ লিমিট: `{CURRENT_SEARCH_LIMIT}`\n\n"
+            f"🇬🇧 Total Registered Users: `{total_users}`\n"
+            f"🇬🇧 Currently Restricted Users: `{restricted_users}`"
         )
         await update.effective_message.reply_text(stats_text, parse_mode="Markdown")
     finally:
@@ -483,7 +482,6 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             mute_duration = timedelta(hours=6)
             until_time = now_utc + mute_duration
 
-            # Restricted user can still invite/add members to the group
             permissions = ChatPermissions(
                 can_send_messages=False, 
                 can_send_audios=False, 
@@ -498,7 +496,7 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
 
             try:
                 await context.bot.restrict_chat_member(
-                    chat_id=chat.id, user_id=user_id, permissions=permissions, until_date=until_time
+                    chat_id=chat.id, user_id=user_id, permissions=permissions, until_until=until_time if 'until_until' in globals() else until_time
                 )
                 user_record.restricted_until = until_time.replace(tzinfo=None)
                 session.commit()
@@ -540,4 +538,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-            

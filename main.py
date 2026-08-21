@@ -41,6 +41,9 @@ ADMIN_USER_IDS = [1249672673]
 # Global dynamic search limit (Default = 4)
 CURRENT_SEARCH_LIMIT = 4
 
+# Required invites to unlock unlimited search after hitting limit
+REQUIRED_INVITES = 2
+
 # Startup Photo URL
 STARTUP_PHOTO_URL = os.getenv("STARTUP_PHOTO_URL", "https://iili.io/CQw1J3X.jpg")
 
@@ -94,8 +97,8 @@ def get_warning_message(user_name, user_id):
     return (
         f"⚠️ **सतর্কতা / Warning**\n\n"
         f"👤 Member: **{user_name}** (`{user_id}`)\n"
-        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার আগে আপনাকে এই গ্রুপে অন্তত ২ জন মেম্বার যোগ করতে হবে, তবেই আপনি এই গ্রুপে মুভি ফাইল সার্চ করতে পারবেন。\n\n"
-        f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited lene se phale aapko is group pe 2 member add karna padega, tabhi aap is group pe movie file search kar sakte ho."
+        f"👉 আপনি ইতিমধ্যে {CURRENT_SEARCH_LIMIT}টি ফাইল সার্চ করে ফেলেছেন। আনলিমিটেড ব্যবহার করার জন্য আপনাকে আপনার ইনভাইট লিংক দিয়ে অন্তত {REQUIRED_INVITES} জন মেম্বার যোগ করতে হবে!\n\n"
+        f"👉 Sir aapne phale hi {CURRENT_SEARCH_LIMIT} file search ki hai. Unlimited use karne ke liye aapko apke invite link se {REQUIRED_INVITES} member add karne honge, tabhi restriction hategi."
     )
 
 def get_welcome_message(user_name, chat_id):
@@ -152,7 +155,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if referrer_rec:
                         referrer_rec.invited_count += 1
                     else:
-                        session.add(UserActivity(user_id=referrer_id, invited_count=1))
+                        referrer_rec = UserActivity(user_id=referrer_id, invited_count=1)
+                        session.add(referrer_rec)
+                    
+                    # Check if referrer has now reached the required invites to unlock
+                    if referrer_rec.invited_count >= REQUIRED_INVITES:
+                        referrer_rec.restricted_until = None
+                        referrer_rec.message_count = 0
+
                     session.commit()
             finally:
                 session.close()
@@ -166,8 +176,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [
-            InlineKeyboardButton("➕ Add To My Group", url=f"https://t.me/Group_FsuBbot?startgroup=true"),
-            InlineKeyboardButton("📤 Share Bot", url=f"https://t.me/share/url?url=https://t.me/Group_FsuBbot&text=Check%20out%20this%20awesome%20bot!")
+            InlineKeyboardButton("➕ Add To My Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"),
+            InlineKeyboardButton("📤 Share Bot", url=f"https://t.me/share/url?url=https://t.me/{BOT_USERNAME}&text=Check%20out%20this%20awesome%20bot!")
         ],
         [
             InlineKeyboardButton("👨‍💻 Developer", url=DEVELOPER_URL),
@@ -276,7 +286,7 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args or not context.args[0].isdigit():
-        await update.effective_message.reply_text(f"⚠️ Usage: `/setlimit 5`\nCurrent Limit is: `{CURRENT_SEARCH_LIMIT}`", parse_mode="Markdown")
+        await update.effective_message.reply_text(f"⚠️ Usage: `/setlimit 4`\nCurrent Limit is: `{CURRENT_SEARCH_LIMIT}`", parse_mode="Markdown")
         return
 
     CURRENT_SEARCH_LIMIT = int(context.args[0])
@@ -293,9 +303,9 @@ async def user_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         text = (
             f"👤 **Your Stats / আপনার স্ট্যাটাস**\n\n"
             f"🇧🇩 সার্চ করেছেন: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
-            f"🇧🇩 সফল ইনভাইট: `{invites}`\n\n"
+            f"🇧🇩 সফল ইনভাইট: `{invites} / {REQUIRED_INVITES}`\n\n"
             f"🇬🇧 Searches Used: `{searches} / {CURRENT_SEARCH_LIMIT}`\n"
-            f"🇬🇧 Successful Invites: `{invites}`"
+            f"🇬🇧 Successful Invites: `{invites} / {REQUIRED_INVITES}`"
         )
         await update.effective_message.reply_text(text, parse_mode="Markdown")
     finally:
@@ -435,7 +445,7 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
         return
 
     username = user.username or user.first_name
-    current_utc_date = datetime.now(timezone.utc).strftime("%Y-m-d")
+    current_utc_date = datetime.now(timezone.utc).strftime("%Y-%m-d")
 
     session = SessionLocal()
     try:
@@ -451,6 +461,10 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             )
             session.add(user_record)
             session.commit()
+
+        # If user has already completed required invites, let them search freely
+        if user_record.invited_count >= REQUIRED_INVITES:
+            return
 
         now_utc = datetime.now(timezone.utc)
         if user_record.restricted_until:
@@ -495,8 +509,9 @@ async def track_messages_and_enforce_limit(update: Update, context: ContextTypes
             )
 
             try:
+                # Fixed: Changed until_until to until_date
                 await context.bot.restrict_chat_member(
-                    chat_id=chat.id, user_id=user_id, permissions=permissions, until_until=until_time if 'until_until' in globals() else until_time
+                    chat_id=chat.id, user_id=user_id, permissions=permissions, until_date=until_time
                 )
                 user_record.restricted_until = until_time.replace(tzinfo=None)
                 session.commit()
